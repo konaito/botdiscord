@@ -523,6 +523,16 @@ async def get_bot_status():
         "users": len(bot.users),
     }
 
+@app.get("/bot/env-check")
+async def check_environment():
+    """環境変数の設定状況を確認（デバッグ用）"""
+    return {
+        "discord_token_set": bool(os.getenv('DISCORD_TOKEN') and os.getenv('DISCORD_TOKEN') != 'your_discord_bot_token_here'),
+        "discord_public_key_set": bool(os.getenv('DISCORD_PUBLIC_KEY') and os.getenv('DISCORD_PUBLIC_KEY') != 'your_discord_public_key_here'),
+        "bot_ready": bot.is_ready(),
+        "environment": "production" if os.getenv('VERCEL') else "development"
+    }
+
 @app.post("/bot/sync-commands")
 async def sync_commands():
     """スラッシュコマンドを手動で同期"""

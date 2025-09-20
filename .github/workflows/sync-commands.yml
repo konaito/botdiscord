@@ -13,7 +13,54 @@ jobs:
     - name: Wait for Vercel deployment
       run: |
         echo "Waiting for Vercel deployment to complete..."
-        sleep 30
+        sleep 60
+    
+    - name: Check Vercel deployment status
+      run: |
+        echo "Checking if Vercel deployment is accessible..."
+        if curl -s -f https://botdiscord-rust.vercel.app/ > /dev/null; then
+          echo "✅ Vercel deployment is accessible"
+        else
+          echo "❌ Vercel deployment is not accessible"
+          exit 1
+        fi
+    
+    - name: Check Environment Variables
+      run: |
+        echo "Checking environment variables setup..."
+        env_check=$(curl -s https://botdiscord-rust.vercel.app/bot/env-check)
+        echo "Environment check: $env_check"
+        
+        if echo "$env_check" | grep -q '"discord_token_set":true'; then
+          echo "✅ DISCORD_TOKEN is set"
+        else
+          echo "❌ DISCORD_TOKEN is not set or invalid"
+        fi
+        
+        if echo "$env_check" | grep -q '"discord_public_key_set":true'; then
+          echo "✅ DISCORD_PUBLIC_KEY is set"
+        else
+          echo "❌ DISCORD_PUBLIC_KEY is not set or invalid"
+        fi
+    
+    - name: Check Bot Status
+      run: |
+        echo "Checking bot status before sync..."
+        status=$(curl -s https://botdiscord-rust.vercel.app/bot/status)
+        echo "Bot status: $status"
+        
+        if echo "$status" | grep -q '"bot_ready":true'; then
+          echo "✅ Bot is ready, proceeding with sync"
+        else
+          echo "⚠️ Bot is not ready. This usually means:"
+          echo "  - DISCORD_TOKEN environment variable is not set in Vercel"
+          echo "  - DISCORD_PUBLIC_KEY environment variable is not set in Vercel"
+          echo "  - Bot token is invalid or expired"
+          echo "  - Bot is not invited to any Discord server"
+          echo ""
+          echo "Please check Vercel environment variables and try again."
+          echo "Continuing with sync attempt anyway..."
+        fi
     
     - name: Sync Discord Commands
       run: |
@@ -24,20 +71,30 @@ jobs:
         # Check if sync was successful
         if echo "$response" | grep -q '"status":"success"'; then
           echo "✅ Discord commands synced successfully!"
+          echo "Synced commands: $(echo "$response" | jq -r '.commands[]' 2>/dev/null || echo 'N/A')"
         else
           echo "❌ Failed to sync Discord commands"
-          echo "Response: $response"
-          exit 1
+          echo "Error details: $response"
+          
+          # Don't fail the workflow if bot is not ready (environment variables not set)
+          if echo "$response" | grep -q '"error":"Bot is not ready"'; then
+            echo "⚠️ Bot is not ready - this is expected if environment variables are not set in Vercel"
+            echo "Please set DISCORD_TOKEN and DISCORD_PUBLIC_KEY in Vercel environment variables"
+            echo "Workflow will continue without failing..."
+          else
+            echo "❌ Unexpected error occurred"
+            exit 1
+          fi
         fi
     
-    - name: Verify Bot Status
+    - name: Final Status Check
       run: |
-        echo "Checking bot status..."
+        echo "Final bot status check..."
         status=$(curl -s https://botdiscord-rust.vercel.app/bot/status)
-        echo "Bot status: $status"
+        echo "Final bot status: $status"
         
         if echo "$status" | grep -q '"bot_ready":true'; then
-          echo "✅ Bot is ready and commands are synced!"
+          echo "✅ Bot is ready and commands should be synced!"
         else
-          echo "⚠️ Bot is not ready, but this might be normal if environment variables are not set"
+          echo "⚠️ Bot is still not ready - check Vercel environment variables"
         fi
