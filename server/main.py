@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
 import discord
 from discord.ext import commands
@@ -9,6 +10,7 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uvicorn
+import json
 
 # 環境変数を読み込み
 load_dotenv()
@@ -208,9 +210,44 @@ async def handle_discord_interaction(interaction: DiscordInteraction):
 
 
 @app.post("/interactions")
-async def handle_interactions(interaction: DiscordInteraction):
-    """Vercel用のインタラクションエンドポイント"""
-    return await handle_discord_interaction(interaction)
+async def handle_interactions(request: Request):
+    """Vercel用のインタラクションエンドポイント（生のHTTPリクエスト処理）"""
+    try:
+        body = await request.json()
+        
+        # DiscordのPINGリクエスト（type: 1）を処理
+        if body.get("type") == 1:
+            return {"type": 1}
+        
+        # スラッシュコマンド（type: 2）を処理
+        elif body.get("type") == 2:
+            command_name = body.get("data", {}).get("name", "")
+            user_id = body.get("user", {}).get("id", "unknown")
+            
+            if command_name == "ping":
+                return {
+                    "type": 4,
+                    "data": {"content": "🏓 Pong! Vercel経由で応答しました"}
+                }
+            elif command_name == "hello":
+                return {
+                    "type": 4,
+                    "data": {"content": f"こんにちは、<@{user_id}>さん！"}
+                }
+            else:
+                return {
+                    "type": 4,
+                    "data": {"content": f"コマンド '{command_name}' は認識されませんでした。"}
+                }
+        else:
+            return {
+                "type": 4,
+                "data": {"content": "不明なインタラクションタイプです。"}
+            }
+    
+    except Exception as e:
+        print(f"インタラクション処理エラー: {e}")
+        return {"type": 4, "data": {"content": "エラーが発生しました。"}}
 
 
 @app.post("/command")
