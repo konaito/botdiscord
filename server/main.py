@@ -178,6 +178,72 @@ async def userinfo(interaction: discord.Interaction, user: discord.Member = None
 
     await interaction.response.send_message(embed=embed)
 
+@bot.tree.command(name="here", description="現在のサーバー、カテゴリ、チャンネル情報を表示します")
+async def here(interaction: discord.Interaction):
+    guild = interaction.guild
+    channel = interaction.channel
+    
+    embed = discord.Embed(
+        title="📍 現在の場所情報",
+        color=discord.Color.green()
+    )
+    
+    # サーバー情報
+    if guild:
+        embed.add_field(
+            name="🏰 サーバー",
+            value=f"**{guild.name}**\nID: `{guild.id}`\nメンバー数: {guild.member_count}",
+            inline=False
+        )
+    else:
+        embed.add_field(name="🏰 サーバー", value="DM", inline=False)
+    
+    # チャンネル情報
+    if isinstance(channel, discord.TextChannel):
+        embed.add_field(
+            name="💬 チャンネル",
+            value=f"**#{channel.name}**\nID: `{channel.id}`",
+            inline=True
+        )
+        
+        # カテゴリ情報
+        if channel.category:
+            embed.add_field(
+                name="📁 カテゴリ",
+                value=f"**{channel.category.name}**\nID: `{channel.category.id}`",
+                inline=True
+            )
+        else:
+            embed.add_field(name="📁 カテゴリ", value="なし", inline=True)
+            
+        # チャンネル作成日
+        embed.add_field(
+            name="📅 チャンネル作成日",
+            value=channel.created_at.strftime("%Y年%m月%d日 %H:%M"),
+            inline=True
+        )
+        
+    elif isinstance(channel, discord.DMChannel):
+        embed.add_field(
+            name="💬 チャンネル",
+            value="DM",
+            inline=True
+        )
+        embed.add_field(name="📁 カテゴリ", value="なし", inline=True)
+    
+    # ユーザー情報
+    user = interaction.user
+    embed.add_field(
+        name="👤 あなた",
+        value=f"**{user.display_name}**\nID: `{user.id}`",
+        inline=False
+    )
+    
+    # タイムスタンプ
+    embed.timestamp = discord.utils.utcnow()
+    
+    await interaction.response.send_message(embed=embed)
+
 
 # FastAPIエンドポイント
 @app.get("/")
@@ -282,6 +348,18 @@ async def handle_interactions(request: Request):
                     "type": 4,
                     "data": {"content": f"こんにちは、<@{user_id}>さん！"}
                 }
+            elif command_name == "here":
+                # サーバー、カテゴリ、チャンネル情報を取得
+                guild_id = body.get("guild_id", "DM")
+                channel_id = body.get("channel_id", "unknown")
+                
+                # 基本的な情報を返す（実際のDiscord APIから詳細情報を取得する場合は別途実装が必要）
+                return {
+                    "type": 4,
+                    "data": {
+                        "content": f"📍 **現在の場所情報**\n\n🏰 **サーバー**: {guild_id}\n💬 **チャンネル**: <#{channel_id}>\n👤 **ユーザー**: <@{user_id}>"
+                    }
+                }
             else:
                 return {
                     "type": 4,
@@ -333,6 +411,17 @@ async def test_interaction(request: Request):
                 return {
                     "type": 4,
                     "data": {"content": f"こんにちは、<@{user_id}>さん！"}
+                }
+            elif command_name == "here":
+                # サーバー、カテゴリ、チャンネル情報を取得
+                guild_id = body.get("guild_id", "DM")
+                channel_id = body.get("channel_id", "unknown")
+                
+                return {
+                    "type": 4,
+                    "data": {
+                        "content": f"📍 **現在の場所情報**\n\n🏰 **サーバー**: {guild_id}\n💬 **チャンネル**: <#{channel_id}>\n👤 **ユーザー**: <@{user_id}>"
+                    }
                 }
             else:
                 return {
