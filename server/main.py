@@ -11,9 +11,33 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any
 import uvicorn
 import json
+import hashlib
+import hmac
+import base64
+from nacl.signing import VerifyKey
+from nacl.exceptions import BadSignatureError
 
 # 環境変数を読み込み
 load_dotenv()
+
+# Discord公開鍵（環境変数から取得）
+DISCORD_PUBLIC_KEY = os.getenv('DISCORD_PUBLIC_KEY')
+
+def verify_signature(raw_body: bytes, signature: str, timestamp: str) -> bool:
+    """Discordの署名を検証する"""
+    if not DISCORD_PUBLIC_KEY:
+        print("警告: DISCORD_PUBLIC_KEYが設定されていません")
+        return False
+    
+    try:
+        # 署名を検証
+        message = timestamp.encode() + raw_body
+        verify_key = VerifyKey(bytes.fromhex(DISCORD_PUBLIC_KEY))
+        verify_key.verify(message, bytes.fromhex(signature))
+        return True
+    except (BadSignatureError, ValueError) as e:
+        print(f"署名検証失敗: {e}")
+        return False
 
 
 # Botを起動する関数
@@ -211,9 +235,26 @@ async def handle_discord_interaction(interaction: DiscordInteraction):
 
 @app.post("/interactions")
 async def handle_interactions(request: Request):
-    """Vercel用のインタラクションエンドポイント（生のHTTPリクエスト処理）"""
+    """Vercel用のインタラクションエンドポイント（署名検証付き）"""
     try:
-        body = await request.json()
+        # 生のリクエストボディを取得
+        raw_body = await request.body()
+        
+        # 署名ヘッダーを取得
+        signature = request.headers.get("X-Signature-Ed25519")
+        timestamp = request.headers.get("X-Signature-Timestamp")
+        
+        if not signature or not timestamp:
+            print("署名ヘッダーが不足しています")
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        # 署名を検証
+        if not verify_signature(raw_body, signature, timestamp):
+            print("署名検証に失敗しました")
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        
+        # JSONをパース
+        body = json.loads(raw_body.decode('utf-8'))
         
         # DiscordのPINGリクエスト（type: 1）を処理
         if body.get("type") == 1:
@@ -245,9 +286,11 @@ async def handle_interactions(request: Request):
                 "data": {"content": "不明なインタラクションタイプです。"}
             }
     
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"インタラクション処理エラー: {e}")
-        return {"type": 4, "data": {"content": "エラーが発生しました。"}}
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 
 @app.post("/command")

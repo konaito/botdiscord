@@ -30,13 +30,26 @@ pip install -r requirements.txt
 ### 2. 環境変数の設定
 
 1. `env.example` を `.env` にコピー
-2. Discord Developer Portal (https://discord.com/developers/applications) でBotトークンを取得
-3. `.env` ファイルで `DISCORD_TOKEN` を設定
+2. Discord Developer Portal (https://discord.com/developers/applications) でBotトークンと公開鍵を取得
+3. `.env` ファイルで `DISCORD_TOKEN` と `DISCORD_PUBLIC_KEY` を設定
 
 ```bash
 cp env.example .env
-# .envファイルを編集してDISCORD_TOKENを設定
+# .envファイルを編集してDISCORD_TOKENとDISCORD_PUBLIC_KEYを設定
 ```
+
+#### Discord Developer Portal での設定
+
+1. **Discord Developer Portal** (https://discord.com/developers/applications) にアクセス
+2. あなたのBotアプリケーションを選択
+3. **General Information** タブで：
+   - **Token** をコピーして `DISCORD_TOKEN` に設定
+   - **Public Key** をコピーして `DISCORD_PUBLIC_KEY` に設定
+4. **INTERACTIONS ENDPOINT URL** を設定：
+   ```
+   https://botdiscord-rust.vercel.app/interactions
+   ```
+5. **Save Changes** をクリック
 
 ### 3. サーバーの起動
 
