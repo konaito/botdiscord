@@ -256,6 +256,9 @@ async def handle_interactions(request: Request):
         # JSONをパース
         body = json.loads(raw_body.decode('utf-8'))
         
+        # デバッグ用ログ（本番環境では削除推奨）
+        print(f"受信したインタラクション: {json.dumps(body, indent=2, ensure_ascii=False)}")
+        
         # DiscordのPINGリクエスト（type: 1）を処理
         if body.get("type") == 1:
             return {"type": 1}
@@ -263,7 +266,11 @@ async def handle_interactions(request: Request):
         # スラッシュコマンド（type: 2）を処理
         elif body.get("type") == 2:
             command_name = body.get("data", {}).get("name", "")
-            user_id = body.get("user", {}).get("id", "unknown")
+            
+            # ユーザー情報を正しく取得
+            user_info = body.get("member", {}).get("user") or body.get("user", {})
+            user_id = user_info.get("id", "unknown")
+            username = user_info.get("username", "Unknown")
             
             if command_name == "ping":
                 return {
@@ -292,6 +299,55 @@ async def handle_interactions(request: Request):
         print(f"インタラクション処理エラー: {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
+
+@app.post("/test-interaction")
+async def test_interaction(request: Request):
+    """テスト用のインタラクションエンドポイント（署名検証なし）"""
+    try:
+        body = await request.json()
+        
+        # デバッグ用ログ
+        print(f"テスト用インタラクション受信: {json.dumps(body, indent=2, ensure_ascii=False)}")
+        
+        # DiscordのPINGリクエスト（type: 1）を処理
+        if body.get("type") == 1:
+            return {"type": 1}
+        
+        # スラッシュコマンド（type: 2）を処理
+        elif body.get("type") == 2:
+            command_name = body.get("data", {}).get("name", "")
+            
+            # ユーザー情報を正しく取得
+            user_info = body.get("member", {}).get("user") or body.get("user", {})
+            user_id = user_info.get("id", "unknown")
+            username = user_info.get("username", "Unknown")
+            
+            print(f"ユーザー情報: ID={user_id}, Username={username}")
+            
+            if command_name == "ping":
+                return {
+                    "type": 4,
+                    "data": {"content": "🏓 Pong! テスト経由で応答しました"}
+                }
+            elif command_name == "hello":
+                return {
+                    "type": 4,
+                    "data": {"content": f"こんにちは、<@{user_id}>さん！"}
+                }
+            else:
+                return {
+                    "type": 4,
+                    "data": {"content": f"コマンド '{command_name}' は認識されませんでした。"}
+                }
+        else:
+            return {
+                "type": 4,
+                "data": {"content": "不明なインタラクションタイプです。"}
+            }
+    
+    except Exception as e:
+        print(f"テストインタラクション処理エラー: {e}")
+        return {"type": 4, "data": {"content": "エラーが発生しました。"}}
 
 @app.post("/command")
 async def execute_command(command_request: CommandRequest):
