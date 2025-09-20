@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import discord
 from discord.ext import commands
 import os
@@ -12,11 +13,35 @@ import uvicorn
 # 環境変数を読み込み
 load_dotenv()
 
+# Botを起動する関数
+async def start_bot():
+    token = os.getenv('DISCORD_TOKEN')
+    if not token or token == 'your_discord_bot_token_here':
+        print("警告: DISCORD_TOKENが設定されていません。Botは起動しません。")
+        return
+    
+    try:
+        await bot.start(token)
+    except Exception as e:
+        print(f"Botの起動に失敗しました: {e}")
+
+# アプリケーションのライフサイクル管理
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 起動時
+    print("アプリケーションを起動中...")
+    asyncio.create_task(start_bot())
+    yield
+    # 終了時
+    print("アプリケーションを終了中...")
+    await bot.close()
+
 # FastAPIアプリケーションの初期化
 app = FastAPI(
     title="Discord Bot API",
     description="Discordスラッシュコマンド対応のFastAPIサーバー",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS設定
@@ -159,6 +184,11 @@ async def handle_discord_interaction(interaction: DiscordInteraction):
         print(f"インタラクション処理エラー: {e}")
         return {"type": 4, "data": {"content": "エラーが発生しました。"}}
 
+@app.post("/interactions")
+async def handle_interactions(interaction: DiscordInteraction):
+    """Vercel用のインタラクションエンドポイント"""
+    return await handle_discord_interaction(interaction)
+
 @app.post("/command")
 async def execute_command(command_request: CommandRequest):
     """カスタムコマンドを実行するエンドポイント"""
@@ -230,25 +260,6 @@ async def get_bot_status():
         "users": len(bot.users)
     }
 
-# Botを起動する関数
-async def start_bot():
-    token = os.getenv('DISCORD_TOKEN')
-    if not token:
-        print("エラー: DISCORD_TOKENが設定されていません。.envファイルを確認してください。")
-        return
-    
-    await bot.start(token)
-
-# アプリケーション起動時の処理
-@app.on_event("startup")
-async def startup_event():
-    # Botをバックグラウンドで起動
-    asyncio.create_task(start_bot())
-
-# アプリケーション終了時の処理
-@app.on_event("shutdown")
-async def shutdown_event():
-    await bot.close()
 
 if __name__ == "__main__":
     uvicorn.run(
