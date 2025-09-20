@@ -1,0 +1,43 @@
+name: Sync Discord Commands
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  sync-commands:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Wait for Vercel deployment
+      run: |
+        echo "Waiting for Vercel deployment to complete..."
+        sleep 30
+    
+    - name: Sync Discord Commands
+      run: |
+        echo "Syncing Discord slash commands..."
+        response=$(curl -s -X POST https://botdiscord-rust.vercel.app/bot/sync-commands)
+        echo "Response: $response"
+        
+        # Check if sync was successful
+        if echo "$response" | grep -q '"status":"success"'; then
+          echo "✅ Discord commands synced successfully!"
+        else
+          echo "❌ Failed to sync Discord commands"
+          echo "Response: $response"
+          exit 1
+        fi
+    
+    - name: Verify Bot Status
+      run: |
+        echo "Checking bot status..."
+        status=$(curl -s https://botdiscord-rust.vercel.app/bot/status)
+        echo "Bot status: $status"
+        
+        if echo "$status" | grep -q '"bot_ready":true'; then
+          echo "✅ Bot is ready and commands are synced!"
+        else
+          echo "⚠️ Bot is not ready, but this might be normal if environment variables are not set"
+        fi

@@ -523,6 +523,22 @@ async def get_bot_status():
         "users": len(bot.users),
     }
 
+@app.post("/bot/sync-commands")
+async def sync_commands():
+    """スラッシュコマンドを手動で同期"""
+    try:
+        if not bot.is_ready():
+            return {"error": "Bot is not ready", "status": "failed"}
+        
+        synced = await bot.tree.sync()
+        return {
+            "status": "success",
+            "synced_commands": len(synced),
+            "commands": [cmd.name for cmd in synced]
+        }
+    except Exception as e:
+        return {"error": str(e), "status": "failed"}
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

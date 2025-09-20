@@ -91,6 +91,20 @@ python main.py
 2. コマンド関数を定義
 3. Botを再起動してスラッシュコマンドを同期
 
+### スラッシュコマンドの同期
+
+#### 自動同期（GitHub Actions）
+コードをプッシュすると、GitHub Actionsが自動的にスラッシュコマンドを同期します。
+
+#### 手動同期
+```bash
+# 同期スクリプトを実行
+python sync_commands.py
+
+# または直接APIを呼び出し
+curl -X POST https://botdiscord-rust.vercel.app/bot/sync-commands
+```
+
 ### API ドキュメント
 
 FastAPIの自動生成ドキュメントは以下で確認できます：
